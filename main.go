@@ -8,30 +8,58 @@ import (
 )
 
 func main() {
-	gsm := sim900.New("/dev/ttyAMA0", 9600)
+	// gsm := sim900.New("/dev/ttyAMA0", 115200)
+	debugMode := true
+	gsm := sim900.New("/dev/cu.SLAB_USBtoUART", 9600, debugMode)
 
 	err := gsm.Connect()
-
 	if err != nil {
 		panic(err)
+	}
+
+	maxBaudRate, err := gsm.GetMaxBaudRate()
+	if err == nil && maxBaudRate > 9600 {
+		err := gsm.SetMaxBaudRate(maxBaudRate)
+
+		if err == nil {
+			gsm.Disconnect()
+
+			gsm = sim900.New("/dev/cu.SLAB_USBtoUART", maxBaudRate, debugMode)
+			err := gsm.Connect()
+			if err != nil {
+				panic(err)
+			}
+		}
 	}
 
 	defer gsm.Disconnect()
 
 	time.Sleep(time.Millisecond * 500)
 
-	fmt.Println("-------- GET SMS List")
-
-	// gsm.GetSMSList(sim900.SMS_UNREADED)
-	gsm.GetSMSList(sim900.SMS_ALL)
-
-	msg, err := gsm.ReadSMS("1")
-	// err = gsm.DeleteSMS("5")
+	// gsm.SendSMS("+79185564752", "Test message 8", "")
+	data, err := gsm.GET("catfact.ninja")
 	if err != nil {
-		fmt.Printf("Error happens %s", err.Error())
+		panic(err)
 	}
 
-	fmt.Printf("Message: %s", msg)
+	fmt.Println("---------------->")
+	fmt.Println(data)
+
+	// return
+
+	// fmt.Println("-------- GET SMS List")
+
+	// gsm.GetSMSList(sim900.SMS_UNREADED)
+	// list, err := gsm.GetSMSList(sim900.SMS_ALL)
+	// fmt.Println("-------- List msg:", list)
+
+	// msg, err := gsm.ReadSMS("2")
+	// err = gsm.DeleteSMS("5")
+	// if err != nil {
+	// 	fmt.Printf("Error happens %s", err.Error())
+	// }
+
+	// fmt.Printf("Message: %s", msg)
 
 	return
 
