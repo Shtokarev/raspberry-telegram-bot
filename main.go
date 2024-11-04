@@ -2,32 +2,55 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
+	"github.com/Shtokarev/raspberry-telegram-bot/config"
 	"github.com/Shtokarev/raspberry-telegram-bot/sim900"
+	"github.com/joho/godotenv"
 )
 
+func init() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+}
+
 func main() {
-	// gsm := sim900.New("/dev/ttyAMA0", 115200)
-	debugMode := true
-	gsm := sim900.New("/dev/cu.SLAB_USBtoUART", 9600, debugMode)
+	conf := config.New()
+
+	fmt.Println("SERIAL_PORT:", conf.SerialPort)
+	fmt.Println("DEBUG_MODE:", conf.DebugMode)
+	fmt.Println("BAUD_RATE:", conf.BaudRate)
+	fmt.Println("AUTODETECT_BAUD_RATE:", conf.AutodetectBaudRate)
+
+	gsm := sim900.New(conf.SerialPort, conf.BaudRate, conf.DebugMode)
 
 	err := gsm.Connect()
 	if err != nil {
 		panic(err)
 	}
 
-	maxBaudRate, err := gsm.GetMaxBaudRate()
-	if err == nil && maxBaudRate > 9600 {
-		err := gsm.SetMaxBaudRate(maxBaudRate)
+	if conf.AutodetectBaudRate {
+		maxBaudRate, err := gsm.GetMaxBaudRate()
+		if err == nil && maxBaudRate > config.MIN_BAUD_RATE {
+			if maxBaudRate > config.MAX_BAUD_RATE {
+				maxBaudRate = config.MAX_BAUD_RATE
+			}
 
-		if err == nil {
-			gsm.Disconnect()
+			fmt.Printf("Detected max baud rate speed %d, reconnecting...\n", maxBaudRate)
+			err := gsm.SetMaxBaudRate(maxBaudRate)
 
-			gsm = sim900.New("/dev/cu.SLAB_USBtoUART", maxBaudRate, debugMode)
-			err := gsm.Connect()
-			if err != nil {
-				panic(err)
+			if err == nil {
+				gsm.Disconnect()
+
+				gsm = sim900.New(conf.SerialPort, maxBaudRate, conf.DebugMode)
+				err := gsm.Connect()
+				if err != nil {
+					panic(err)
+				}
+				fmt.Printf("Switched to %d successfully\n", maxBaudRate)
 			}
 		}
 	}
